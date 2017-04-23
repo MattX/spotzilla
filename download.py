@@ -2,20 +2,12 @@ import youtube_dl
 import musicbrainzngs
 from difflib import SequenceMatcher
 import eyed3
-import os
-import shutil
-import glob
 
 CONFIDENCE_THRESHOLD = 0.8
-TEMP_DIR = "/tmp/video_dl/"
-
-def prepare_dir(path):
-    shutil.rmtree(path, ignore_errors=True)
-    os.mkdir(path)
 
 
 def similar(a, b):
-        return SequenceMatcher(None, a, b).ratio()
+    return SequenceMatcher(None, a, b).ratio()
 
 
 class VariableHook:
@@ -99,7 +91,7 @@ def download(url, ytdl, vh, tracks):
     while filename is None:
         pass
 
-    track.fname = filename
+    track.fname = ".".join(filename.split(".")[:-2] + ["mp3"])
 
     if score > CONFIDENCE_THRESHOLD:
         print("Saving information.")
@@ -124,11 +116,10 @@ ydl_opts = {
             'preferredcodec': 'mp3',
             }],
         'progress_hooks': [vh.forward_hook],
+        'outtmpl': "%(title)s.%(id)s.%(ext)s",
         }
 
 tracks = []
-
-prepare_dir(TEMP_DIR)
 
 import sys
 with youtube_dl.YoutubeDL(ydl_opts) as ytdl:
