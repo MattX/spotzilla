@@ -1,0 +1,4 @@
+eyeD3>=0.8.0b1
+pylast>=1.8.0
+youtube-dl>=2017.4.17
+
