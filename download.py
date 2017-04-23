@@ -1,7 +1,8 @@
 import youtube_dl
-import musicbrainzngs
+import pylast
 from difflib import SequenceMatcher
 import eyed3
+import configparser
 
 CONFIDENCE_THRESHOLD = 0.8
 
@@ -42,7 +43,15 @@ class Track:
         l.tag.save()
 
 
-def download(url, ytdl, vh, tracks):
+def get_lastfm_network():
+    c = configparser.ConfigParser()
+    with open('settings') as cf:
+        c.read_file(cf)
+    c = c['auth']
+    return pylast.LastFMNetwork(api_key=c['api_key'], api_secret=c['secret'], username=c['username'], password_hash=c['password_hash'])
+
+
+def download(url, ytdl, vh, tracks, network):
     """
     Do the heavy lifting
     """
@@ -51,16 +60,14 @@ def download(url, ytdl, vh, tracks):
         nonlocal filename
         if filename is None and d['status'] in ["downloading", "finished"]:
             filename = d['filename']
-            print("Set filename to {}".format(d['filename']))
     vh.set_hook(hook)
 
     print("Downloading {}.".format(url))
     info = ytdl.extract_info(url, download=True)
     
     vid_title = info["title"]
-    print("Video title is {}. Querying on musicbrainz...".format(vid_title))
-    r = musicbrainzngs.search_recordings(vid_title)
-    r = r['recording-list']
+    print("Video title is {}. Querying on last.fm...".format(vid_title))
+    r = network.search_for_track("", vid_title).get_next_page()
 
     track = Track(None, vid_title, None, None, r, True)
     presumed_title = None
@@ -70,8 +77,8 @@ def download(url, ytdl, vh, tracks):
         print("No results found.")
         score = 0
     else:
-        best_title = r[0]['title']
-        best_artist = r[0]['artist-credit'][0]['artist']['name']
+        best_title = r[0].title
+        best_artist = r[0].artist.name
         print("Best found: {} - {}. ".format(best_artist, best_title), end="")
         parts = [p.strip() for p in vid_title.split("-")]
         if len(parts) == 1:
@@ -107,8 +114,6 @@ def download(url, ytdl, vh, tracks):
     tracks.append(track)
 
 
-musicbrainzngs.set_useragent("Music Consolidator", "1.0", "matthieufelix@gmail.com")
-
 vh = VariableHook()
 ydl_opts = {
         'postprocessors': [{
@@ -121,10 +126,12 @@ ydl_opts = {
 
 tracks = []
 
+network = get_lastfm_network()
+
 import sys
 with youtube_dl.YoutubeDL(ydl_opts) as ytdl:
     for track in sys.argv[1:]:
-        download(track, ytdl, vh, tracks)
+        download(track, ytdl, vh, tracks, network)
         print()
 
 print("Downloading done.")
